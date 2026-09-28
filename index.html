@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Organizador del Hogar</title>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/main.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    :root {
+      --bg-main: #f8fafc;
+      --card-bg: #ffffff;
+      --text-main: #1e293b;
+      --text-muted: #64748b;
+      --border-color: #e2e8f0;
+      --primary: #8b5cf6;
+      --primary-light: #ede9fe;
+      --primary-dark: #6d28d9;
+      --success: #10b981;
+      --danger: #ef4444;
+      --radius: 14px;
+      --shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+    body { background-color: var(--bg-main); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; }
+
+    header {
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--border-color);
+      padding: 1rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 40;
+    }
+    .brand { font-size: 1.2rem; font-weight: 700; color: var(--primary); }
+
+    nav { display: flex; gap: 0.4rem; overflow-x: auto; padding-bottom: 2px; }
+    nav button {
+      background: none;
+      border: none;
+      padding: 0.6rem 0.9rem;
+      border-radius: var(--radius);
+      color: var(--text-muted);
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    nav button.active { background: var(--primary-light); color: var(--primary-dark); }
+
+    main { padding: 1.5rem; max-width: 1200px; margin: 0 auto; width: 100%; flex: 1; }
+    .view-section { display: none; }
+    .view-section.active { display: block; }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow);
+      padding: 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 0.65rem 1.2rem;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-secondary { background: var(--border-color); color: var(--text-main); }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
+      padding: 1rem;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: auto; }
+    .modal-box {
+      background: white; border-radius: 18px; padding: 1.5rem;
+      width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto;
+    }
+
+    .form-group { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1rem; }
+    .form-group label { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); }
+    .form-group input, .form-group select {
+      padding: 0.65rem 0.8rem; border-radius: 10px; border: 1px solid var(--border-color);
+      outline: none; font-size: 0.95rem;
+    }
+
+    /* MÓDULO RECURRENCIA (REPLICA DE LAS CAPTURAS) */
+    .recurrence-card {
+      background: #fdfdfd;
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 1.2rem;
+      margin-bottom: 1rem;
+    }
+    .recurrence-header {
+      display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;
+    }
+    .recurrence-header span { font-weight: 600; font-size: 1rem; }
+
+    /* Switch */
+    .switch { position: relative; width: 48px; height: 26px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; cursor: pointer; inset: 0; background-color: #cbd5e1;
+      transition: .3s; border-radius: 34px;
+    }
+    .slider:before {
+      position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px;
+      background-color: white; transition: .3s; border-radius: 50%;
+    }
+    input:checked + .slider { background-color: var(--primary); }
+    input:checked + .slider:before { transform: translateX(22px); }
+
+    /* Segmented Controls */
+    .segment-bar {
+      display: flex; background: #f1f5f9; border-radius: 12px; padding: 4px; gap: 4px; margin-bottom: 1rem;
+    }
+    .segment-btn {
+      flex: 1; border: none; background: none; padding: 0.55rem; border-radius: 9px;
+      font-weight: 600; color: var(--text-muted); cursor: pointer; font-size: 0.9rem;
+    }
+    .segment-btn.active {
+      background: var(--primary); color: white; box-shadow: 0 2px 6px rgba(139, 92, 246, 0.35);
+    }
+
+    /* Counter Stepper */
+    .stepper-row {
+      display: flex; align-items: center; justify-content: space-between;
+      background: #f8fafc; border: 1px solid var(--border-color);
+      border-radius: 12px; padding: 0.6rem 1rem; margin-bottom: 1rem; font-weight: 600;
+    }
+    .stepper-controls { display: flex; align-items: center; gap: 1rem; }
+    .btn-step {
+      background: none; border: 1px solid var(--border-color); border-radius: 8px;
+      width: 32px; height: 32px; font-size: 1.1rem; cursor: pointer; display: flex;
+      align-items: center; justify-content: center;
+    }
+
+    /* Días Semana */
+    .weekdays-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 0.5rem; }
+    .day-pill {
+      background: #f1f5f9; border: 1px solid transparent; border-radius: 8px;
+      padding: 0.5rem 0; font-size: 0.8rem; font-weight: 600; cursor: pointer; text-align: center;
+    }
+    .day-pill.active { background: var(--primary); color: white; }
+
+    /* Grid del Mes 1 al 31 */
+    .month-grid {
+      display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 0.75rem;
+    }
+    .month-day {
+      background: #f8fafc; border: 1px solid var(--border-color); border-radius: 8px;
+      aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+      font-weight: 600; font-size: 0.85rem; cursor: pointer;
+    }
+    .month-day.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+    /* Selectores Ordinales ("El...") */
+    .ordinal-row { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
+    .ordinal-row select { flex: 1; padding: 0.6rem; border-radius: 10px; border: 1px solid var(--border-color); }
+
+    /* Lista tareas */
+    .task-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.8rem 1rem; background: var(--bg-main); border: 1px solid var(--border-color);
+      border-radius: 10px; margin-bottom: 0.5rem;
+    }
+    .task-item.completed span.name { text-decoration: line-through; color: var(--text-muted); }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">✨ Dulce Hogar</div>
+    <nav>
+      <button class="active" onclick="switchView('view-calendar')">Calendario</button>
+      <button onclick="switchView('view-tasks')">Tareas</button>
+      <button onclick="switchView('view-analytics')">Cumplimiento</button>
+      <button onclick="switchView('view-notes')">Notas</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- VISTA CALENDARIO -->
+    <section id="view-calendar" class="view-section active">
+      <div class="card" style="display: flex; justify-content: space-between; align-items: center;">
+        <h2>Planificador</h2>
+        <button class="btn" onclick="openTaskModal()">+ Tarea</button>
+      </div>
+      <div class="card">
+        <div id="calendar"></div>
+      </div>
+    </section>
+
+    <!-- VISTA TAREAS -->
+    <section id="view-tasks" class="view-section">
+      <div class="card" style="display: flex; justify-content: space-between; align-items: center;">
+        <h2>Listado de Tareas</h2>
+        <button class="btn" onclick="openTaskModal()">+ Añadir</button>
+      </div>
+      <div class="card">
+        <div id="taskListContainer"></div>
+      </div>
+    </section>
+
+    <!-- VISTA CUMPLIMIENTO -->
+    <section id="view-analytics" class="view-section">
+      <div class="card">
+        <h2>Grado de Cumplimiento</h2>
+        <div style="height: 300px; margin-top: 1rem;"><canvas id="roomChart"></canvas></div>
+      </div>
+    </section>
+
+    <!-- VISTA NOTAS -->
+    <section id="view-notes" class="view-section">
+      <div class="card">
+        <h2>Bloc de Notas y Compras</h2>
+        <textarea id="notesArea" rows="12" style="width: 100%; padding: 0.8rem; border-radius: 10px; border: 1px solid var(--border-color); margin-top: 1rem;"></textarea>
+        <button class="btn" style="margin-top: 1rem;" onclick="saveNotes()">Guardar</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- MODAL DE TAREA -->
+  <div class="modal-overlay" id="taskModal">
+    <div class="modal-box">
+      <h3 style="margin-bottom: 1rem;">Nueva Tarea</h3>
+      <form id="taskForm" onsubmit="handleTaskSubmit(event)">
+        
+        <div class="form-group">
+          <label>Predefinida (opcional)</label>
+          <select id="presetTaskSelect" onchange="document.getElementById('taskTitle').value = this.value">
+            <option value="">-- Elige o escribe manual --</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Nombre de la Tarea</label>
+          <input type="text" id="taskTitle" required placeholder="Ej. Limpieza fondo piscina">
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem;">
+          <div class="form-group">
+            <label>Estancia</label>
+            <select id="taskRoom"></select>
+          </div>
+          <div class="form-group">
+            <label>Fecha Primer Evento</label>
+            <input type="date" id="taskStartDate" required>
+          </div>
+        </div>
+
+        <!-- COMPONENTE RECURRENCIA -->
+        <div class="recurrence-card">
+          <div class="recurrence-header">
+            <span>Establecer Recurrencia</span>
+            <label class="switch">
+              <input type="checkbox" id="recToggle" onchange="toggleRecurrenceBody()">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div id="recurrenceBody" style="display: none;">
+            <!-- Segmentos Diario / Semanal / Mensual -->
+            <div class="segment-bar">
+              <button type="button" class="segment-btn" id="btnRecDaily" onclick="setFreqType('daily')">Diario</button>
+              <button type="button" class="segment-btn active" id="btnRecWeekly" onclick="setFreqType('weekly')">Semanal</button>
+              <button type="button" class="segment-btn" id="btnRecMonthly" onclick="setFreqType('monthly')">Mensual</button>
+            </div>
+
+            <!-- Contador "Cada X Semanas/Meses" -->
+            <div class="stepper-row" id="stepperRow">
+              <span>Cada</span>
+              <div class="stepper-controls">
+                <button type="button" class="btn-step" onclick="stepCount(-1)">−</button>
+                <span id="intervalValue">1</span>
+                <button type="button" class="btn-step" onclick="stepCount(1)">+</button>
+              </div>
+              <span id="intervalUnit">Semana</span>
+            </div>
+
+            <!-- Panel Semanal (Días) -->
+            <div id="panelWeekly">
+              <div class="weekdays-row">
+                <div class="day-pill" onclick="toggleWeekDay(this, 1)">Lun</div>
+                <div class="day-pill" onclick="toggleWeekDay(this, 2)">Mar</div>
+                <div class="day-pill" onclick="toggleWeekDay(this, 3)">Mié</div>
+                <div class="day-pill" onclick="toggleWeekDay(this, 4)">Jue</div>
+                <div class="day-pill" onclick="toggleWeekDay(this, 5)">Vie</div>
+                <div class="day-pill" onclick="toggleWeekDay(this, 6)">Sáb</div>
+                <div class="day-pill" onclick="toggleWeekDay(this, 0)">Dom</div>
+              </div>
+            </div>
+
+            <!-- Panel Mensual -->
+            <div id="panelMonthly" style="display: none;">
+              <div class="segment-bar">
+                <button type="button" class="segment-btn active" id="btnMonthModeDate" onclick="setMonthMode('date')">Día del mes</button>
+                <button type="button" class="segment-btn" id="btnMonthModeRule" onclick="setMonthMode('rule')">El...</button>
+              </div>
+
+              <!-- Cuadrícula 1 a 31 -->
+              <div class="month-grid" id="monthGrid"></div>
+
+              <!-- Selector Ordinal -->
+              <div class="ordinal-row" id="ordinalBox" style="display: none;">
+                <select id="recOrdinal">
+                  <option value="1">primer</option>
+                  <option value="2">segundo</option>
+                  <option value="3">tercer</option>
+                  <option value="4">cuarto</option>
+                  <option value="-1">último</option>
+                </select>
+                <select id="recWeekdayTarget">
+                  <option value="1">lunes</option>
+                  <option value="2">martes</option>
+                  <option value="3">miércoles</option>
+                  <option value="4">jueves</option>
+                  <option value="5">viernes</option>
+                  <option value="6">sábado</option>
+                  <option value="0">domingo</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+          <button type="button" class="btn btn-secondary" onclick="closeTaskModal()">Cancelar</button>
+          <button type="submit" class="btn">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const rooms = [
+      'Recibidor', 'Escaleras', 'Rellano', 'Estudio', 'Oficina', 'Aseo',
+      'Salón', 'Cocina', 'Dormitorio Suite', 'Dormitorio 1', 'Dormitorio 2',
+      'Baño principal', 'Baño Suite', 'Balcones', 'Jardín', 'Piscina'
+    ];
+
+    const defaultPresets = [
+      'Limpiar el polvo', 'Limpiar interruptores', 'Limpiar ventilador', 'Limpiar lámparas',
+      'Limpiar cristales', 'Lavar cortinas', 'Ordenar armarios', 'Ordenar cajones',
+      'Limpiar armarios', 'Limpiar puertas', 'Limpiar sanitarios', 'Limpiar espejos',
+      'Cambiar sábanas', 'Cambiar toallas', 'Limpiar puerta de entrada', 'Limpiar azulejos',
+      'Limpieza/mantenimiento Nevera', 'Limpieza/mantenimiento lavadora', 'Limpieza/mantenimiento lavavajillas',
+      'Limpieza/mantenimiento Air Frier', 'Limpieza/mantenimiento microondas', 'Limpieza/mantenimiento Cafetera',
+      'Limpieza/mantenimiento campana extractora', 'Barrer', 'Aspirar', 'Fregar',
+      'Poner lavavajillas', 'Poner lavadora', 'Tender', 'Doblar ropa', 'Cambiar ropa estación',
+      'Limpiar superficie piscina', 'Limpieza/Mantenimiento Depuradora', 'Cloro',
+      'Limpieza del fondo piscina', 'Control niveles calidad agua'
+    ];
+
+    let tasks = JSON.parse(localStorage.getItem('app_tasks_v2')) || [];
+    let calendar;
+
+    // ESTADO RECURRENCIA
+    let recState = {
+      active: false,
+      type: 'weekly',
+      interval: 1,
+      weekdays: [],
+      monthMode: 'date',
+      monthDay: 1,
+      ordinal: 1,
+      weekdayTarget: 1
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+      buildPresets();
+      buildMonthGrid();
+      initCalendar();
+      renderTasks();
+      loadNotes();
+      updateChart();
+    });
+
+    function buildPresets() {
+      const pSel = document.getElementById('presetTaskSelect');
+      defaultPresets.forEach(p => pSel.innerHTML += `<option value="${p}">${p}</option>`);
+      const rSel = document.getElementById('taskRoom');
+      rooms.forEach(r => rSel.innerHTML += `<option value="${r}">${r}</option>`);
+    }
+
+    function buildMonthGrid() {
+      const grid = document.getElementById('monthGrid');
+      grid.innerHTML = '';
+      for (let i = 1; i <= 31; i++) {
+        const d = document.createElement('div');
+        d.className = 'month-day' + (i === 1 ? ' active' : '');
+        d.innerText = i;
+        d.onclick = () => {
+          document.querySelectorAll('.month-day').forEach(el => el.classList.remove('active'));
+          d.classList.add('active');
+          recState.monthDay = i;
+        };
+        grid.appendChild(d);
+      }
+    }
+
+    // MANEJO DEL SELECTOR VISUAL DE RECURRENCIA
+    function toggleRecurrenceBody() {
+      recState.active = document.getElementById('recToggle').checked;
+      document.getElementById('recurrenceBody').style.display = recState.active ? 'block' : 'none';
+    }
+
+    function setFreqType(type) {
+      recState.type = type;
+      ['btnRecDaily', 'btnRecWeekly', 'btnRecMonthly'].forEach(id => document.getElementById(id).classList.remove('active'));
+      document.getElementById('stepperRow').style.display = type === 'daily' ? 'none' : 'flex';
+      document.getElementById('panelWeekly').style.display = type === 'weekly' ? 'block' : 'none';
+      document.getElementById('panelMonthly').style.display = type === 'monthly' ? 'block' : 'none';
+
+      if (type === 'daily') document.getElementById('btnRecDaily').classList.add('active');
+      if (type === 'weekly') {
+        document.getElementById('btnRecWeekly').classList.add('active');
+        document.getElementById('intervalUnit').innerText = recState.interval > 1 ? 'Semanas' : 'Semana';
+      }
+      if (type === 'monthly') {
+        document.getElementById('btnRecMonthly').classList.add('active');
+        document.getElementById('intervalUnit').innerText = recState.interval > 1 ? 'Meses' : 'Mes';
+      }
+    }
+
+    function stepCount(step) {
+      recState.interval = Math.max(1, recState.interval + step);
+      document.getElementById('intervalValue').innerText = recState.interval;
+      if (recState.type === 'weekly') {
+        document.getElementById('intervalUnit').innerText = recState.interval > 1 ? 'Semanas' : 'Semana';
+      } else {
+        document.getElementById('intervalUnit').innerText = recState.interval > 1 ? 'Meses' : 'Mes';
+      }
+    }
+
+    function toggleWeekDay(el, dayIdx) {
+      el.classList.toggle('active');
+      if (recState.weekdays.includes(dayIdx)) {
+        recState.weekdays = recState.weekdays.filter(d => d !== dayIdx);
+      } else {
+        recState.weekdays.push(dayIdx);
+      }
+    }
+
+    function setMonthMode(mode) {
+      recState.monthMode = mode;
+      document.getElementById('btnMonthModeDate').classList.toggle('active', mode === 'date');
+      document.getElementById('btnMonthModeRule').classList.toggle('active', mode === 'rule');
+      document.getElementById('monthGrid').style.display = mode === 'date' ? 'grid' : 'none';
+      document.getElementById('ordinalBox').style.display = mode === 'rule' ? 'flex' : 'none';
+    }
+
+    // CREACIÓN Y PROYECCIÓN DE TAREAS EN CALENDARIO
+    function handleTaskSubmit(e) {
+      e.preventDefault();
+      const baseTask = {
+        id: 'task_' + Date.now(),
+        title: document.getElementById('taskTitle').value,
+        room: document.getElementById('taskRoom').value,
+        startDate: document.getElementById('taskStartDate').value,
+        completed: false,
+        recState: { ...recState }
+      };
+
+      const generatedEvents = generateOccurrences(baseTask);
+      tasks.push(...generatedEvents);
+      localStorage.setItem('app_tasks_v2', JSON.stringify(tasks));
+
+      closeTaskModal();
+      renderTasks();
+      if (calendar) {
+        calendar.removeAllEvents();
+        calendar.addEventSource(mapToCalendarEvents());
+      }
+      updateChart();
+    }
+
+    function generateOccurrences(task) {
+      let events = [];
+      let cur = new Date(task.startDate + 'T00:00:00');
+      let endDate = new Date(cur);
+      endDate.setMonth(endDate.getMonth() + 6); // Proyecta 6 meses a futuro
+
+      if (!task.recState.active) {
+        return [{ ...task, instanceDate: task.startDate }];
+      }
+
+      while (cur <= endDate) {
+        const iso = cur.toISOString().split('T')[0];
+
+        if (task.recState.type === 'daily') {
+          events.push({ ...task, id: task.id + '_' + iso, instanceDate: iso });
+          cur.setDate(cur.getDate() + 1);
+        } else if (task.recState.type === 'weekly') {
+          if (task.recState.weekdays.length === 0 || task.recState.weekdays.includes(cur.getDay())) {
+            events.push({ ...task, id: task.id + '_' + iso, instanceDate: iso });
+          }
+          cur.setDate(cur.getDate() + 1);
+        } else if (task.recState.type === 'monthly') {
+          if (task.recState.monthMode === 'date') {
+            let targetDate = new Date(cur.getFullYear(), cur.getMonth(), task.recState.monthDay);
+            if (targetDate >= new Date(task.startDate) && targetDate <= endDate) {
+              events.push({ ...task, id: task.id + '_' + targetDate.toISOString().split('T')[0], instanceDate: targetDate.toISOString().split('T')[0] });
+            }
+          }
+          cur.setMonth(cur.getMonth() + task.recState.interval);
+        }
+      }
+      return events.length ? events : [{ ...task, instanceDate: task.startDate }];
+    }
+
+    function mapToCalendarEvents() {
+      return tasks.map(t => ({
+        id: t.id,
+        title: `${t.completed ? '✓ ' : ''}${t.title} (${t.room})`,
+        start: t.instanceDate || t.startDate,
+        backgroundColor: t.completed ? '#94a3b8' : '#8b5cf6',
+        borderColor: t.completed ? '#64748b' : '#7c3aed'
+      }));
+    }
+
+    function initCalendar() {
+      calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
+        initialView: 'dayGridMonth',
+        locale: 'es',
+        headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek' },
+        events: mapToCalendarEvents(),
+        eventClick: (info) => toggleTask(info.event.id)
+      });
+      calendar.render();
+    }
+
+    function toggleTask(id) {
+      const t = tasks.find(x => x.id === id);
+      if (t) {
+        t.completed = !t.completed;
+        localStorage.setItem('app_tasks_v2', JSON.stringify(tasks));
+        renderTasks();
+        calendar.removeAllEvents();
+        calendar.addEventSource(mapToCalendarEvents());
+        updateChart();
+      }
+    }
+
+    function renderTasks() {
+      const container = document.getElementById('taskListContainer');
+      if (!tasks.length) {
+        container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:1rem;">Sin tareas registradas.</p>';
+        return;
+      }
+      container.innerHTML = tasks.slice(0, 30).map(t => `
+        <div class="task-item ${t.completed ? 'completed' : ''}">
+          <div style="display:flex; align-items:center; gap:0.8rem;">
+            <input type="checkbox" ${t.completed ? 'checked' : ''} onchange="toggleTask('${t.id}')">
+            <div>
+              <span class="name" style="font-weight:600;">${t.title}</span>
+              <div style="font-size:0.8rem; color:var(--text-muted);">📍 ${t.room} | 🗓️ ${t.instanceDate || t.startDate}</div>
+            </div>
+          </div>
+          <button onclick="deleteTask('${t.id}')" style="background:none; border:none; color:var(--danger); cursor:pointer;">✕</button>
+        </div>
+      `).join('');
+    }
+
+    function deleteTask(id) {
+      tasks = tasks.filter(t => t.id !== id);
+      localStorage.setItem('app_tasks_v2', JSON.stringify(tasks));
+      renderTasks();
+      calendar.removeAllEvents();
+      calendar.addEventSource(mapToCalendarEvents());
+      updateChart();
+    }
+
+    let chartInstance;
+    function updateChart() {
+      const ctx = document.getElementById('roomChart');
+      if (!ctx) return;
+      const counts = {};
+      rooms.forEach(r => counts[r] = { done: 0, total: 0 });
+      tasks.forEach(t => {
+        if (!counts[t.room]) counts[t.room] = { done: 0, total: 0 };
+        counts[t.room].total++;
+        if (t.completed) counts[t.room].done++;
+      });
+      if (chartInstance) chartInstance.destroy();
+      chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: Object.keys(counts),
+          datasets: [{ label: 'Completadas', data: Object.values(counts).map(c => c.done), backgroundColor: '#10b981' }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+    }
+
+    function openTaskModal() {
+      document.getElementById('taskForm').reset();
+      document.getElementById('taskStartDate').value = new Date().toISOString().split('T')[0];
+      recState = { active: false, type: 'weekly', interval: 1, weekdays: [], monthMode: 'date', monthDay: 1, ordinal: 1, weekdayTarget: 1 };
+      document.getElementById('recToggle').checked = false;
+      toggleRecurrenceBody();
+      document.getElementById('taskModal').classList.add('open');
+    }
+    function closeTaskModal() { document.getElementById('taskModal').classList.remove('open'); }
+    function switchView(id) {
+      document.querySelectorAll('.view-section').forEach(e => e.classList.remove('active'));
+      document.querySelectorAll('nav button').forEach(e => e.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+      event.target.classList.add('active');
+      if (id === 'view-calendar' && calendar) calendar.render();
+    }
+    function saveNotes() {
+      localStorage.setItem('app_notes', document.getElementById('notesArea').value);
+      alert('Notas guardadas');
+    }
+    function loadNotes() {
+      document.getElementById('notesArea').value = localStorage.getItem('app_notes') || '';
+    }
+  </script>
+</body>
+</html>
